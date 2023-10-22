@@ -2,7 +2,6 @@ const express = require('express');
 const mongoose = require('mongoose');
 const multer = require('multer');
 const config = require('./config');
-const Contact = require('./models/contact');
 const Image = require('./models/Image'); // Import the Image model
 
 const app = express();
@@ -24,80 +23,89 @@ db.once('open', () => {
 
 // Set up Multer for handling file uploads
 const storage = multer.memoryStorage(); // Store the uploaded file as a Buffer
-const upload = multer({ storage: storage });
+const upload = multer({
+  storage: storage,
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype === 'image/png' || file.mimetype === 'image/jpeg' || file.mimetype === 'image/jpg') {
+      cb(null, true);
+    } else {
+      cb(new Error('File type not supported'));
+    }
+  },
+});
 
-// Create indexes using createIndex() method
-Contact.init()
-  .then(() => {
-    console.log('Contact model indexes created.');
-  })
-  .catch((error) => {
-    console.error('Error creating Contact model indexes:', error);
-  });
 
 // POST API for uploading an image
+const Tesseract = require('tesseract.js');
+
+// ...
+
 app.post('/upload', upload.single('image'), async (req, res) => {
-    try {
-      // Read the uploaded image file and store it as a Buffer
-      const imageBuffer = req.file.buffer;
-  
-      // Create a new image document in the database
-      const newImage = new Image({
-        image: imageBuffer,
-      });
-      // Save the new image document
-      await newImage.save();
-  
-      // Return the ID of the newly created image along with a success message
-      res.status(201).json({
-        message: 'Image uploaded successfully',
-        imageId: newImage._id, // Include the ID in the response
-      });
-    } catch (error) {
-      res.status(500).json({ error: 'Image upload failed' });
+  try {
+    //File Validation
+    if (req.fileValidationError) {
+      return res.status(400).json({ error: req.fileValidationError });
     }
-  });
-  
+    // Read the uploaded image file and store it as a Buffer
+    const imageBuffer = req.file.buffer;
+
+    // Perform OCR to extract text from the image
+    const { data } = await Tesseract.recognize(imageBuffer);
+
+    // Create a new image document in the database
+    const newImage = new Image({
+      originalImage: imageBuffer,
+      extractedText: data.text,
+    });
+
+    // Save the image to the database
+    await newImage.save();
+
+    // Prepare the response
+    const response = {
+      message: 'Image uploaded successfully',
+      id: newImage._id,
+      timestamp: newImage.timestamp, // Include the timestamp
+      extractedText: data.text, // Include the extracted text
+    };
+
+    res.status(201).json(response);
+  } catch (error) {
+    res.status(500).json({ error: 'Image upload failed' });
+  }
+});
 
 // GET API for retrieving an image by ID
 app.get('/images/:id', async (req, res) => {
-    try {
-      const imageId = req.params.id;
-  
-      // Find the image by its ID
-      const image = await Image.findById(imageId);
-  
-      if (!image) {
-        return res.status(404).json({ error: 'Image not found' });
-      }
-  
-      // Set Content-Disposition header to make the response an attachment
-      res.set('Content-Disposition', `attachment; filename="${imageId}.png"`);
-      
-      // Set the Content-Type to specify the image format (e.g., PNG)
-      res.set('Content-Type', 'image/png');
-  
-      // Serve the image binary data
-      res.send(image.image);
-    } catch (error) {
-      res.status(500).json({ error: 'Image retrieval failed' });
+  try {
+    const imageId = req.params.id;
+
+    // Find the image by its ID
+    const image = await Image.findById(imageId);
+
+    if (!image) {
+      return res.status(404).json({ error: 'Image not found' });
     }
-  });
-  
-  
+   
+
+    const extractedText = image.extractedText; // Assuming you store the extracted text in the image document
+    const uploadTime = image.timestamp; // Assuming you store the upload time in the image document
+
+    // Set the Content-Type to specify the image format (e.g., PNG)
+    // res.set('Content-Type', 'image/png');
+
+    // Send a JSON response with the image, extracted text, and upload time
+    // res.json({ image: image.image.toString('base64'), extractedText, uploadTime });
+    console.log({ extractedText, uploadTime })
+    res.json({ extractedText, uploadTime });
+  } catch (error) {
+    res.status(500).json({ error: 'Image retrieval failed' });
+  }
+});
+
 
 app.get('/', (req, res) => {
   res.send('Hello, Express.js and MongoDB!');
-});
-
-app.post('/contacts', async (req, res) => {
-  try {
-    const newContact = new Contact(req.body);
-    await newContact.save();
-    res.status(201).json(newContact);
-  } catch (error) {
-    res.status(400).json({ error: error.message });
-  }
 });
 
 app.listen(port, () => {

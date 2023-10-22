@@ -1,10 +1,17 @@
 const mongoose = require('mongoose');
 
 const imageSchema = new mongoose.Schema({
-  image: Buffer, // Store the image binary data
+  originalImage: {
+    type: Buffer,
+    required: true,
+  },
   timestamp: {
     type: Date,
-    default: Date.now, // Set the default value to the current date and time
+    default: Date.now,
+  },
+  extractedText: {
+    type: String, // Add a field for extracted text
+    required: true,
   },
 });
 
