@@ -1,4 +1,5 @@
 const express = require('express');
+const path = require('path');
 const mongoose = require('mongoose');
 const multer = require('multer');
 const config = require('./config');
@@ -101,9 +102,7 @@ app.get('/images/:id', async (req, res) => {
 });
 
 
-app.get('/', (req, res) => {
-  res.send('Hello, Express.js and MongoDB!');
-});
+app.use('/', express.static(path.join(__dirname, 'build')));
 
 app.listen(port, () => {
   console.log(`Server is running on port ${port}`);
