@@ -2,17 +2,19 @@ const express = require('express');
 const mongoose = require('mongoose');
 const multer = require('multer');
 const config = require('./config');
-const Image = require('./models/Image'); // Import the Image model
+const Image = require('./models/Image');
+const cors = require('cors');
 
 const app = express();
 const port = process.env.PORT || 3000;
+app.use(cors());
 
 app.use(express.json());
 
 mongoose.connect(config.db.url, {
   useNewUrlParser: true,
   useUnifiedTopology: true,
-  serverSelectionTimeoutMS: 30000, // Set a 30-second timeout
+  serverSelectionTimeoutMS: 30000, 
 });
 
 const db = mongoose.connection;
@@ -21,8 +23,10 @@ db.once('open', () => {
   console.log('Connected to MongoDB');
 });
 
-// Set up Multer for handling file uploads
-const storage = multer.memoryStorage(); // Store the uploaded file as a Buffer
+
+const storage = multer.memoryStorage();
+
+
 const upload = multer({
   storage: storage,
   fileFilter: (req, file, cb) => {
@@ -37,8 +41,6 @@ const upload = multer({
 
 // POST API for uploading an image
 const Tesseract = require('tesseract.js');
-
-// ...
 
 app.post('/upload', upload.single('image'), async (req, res) => {
   try {
@@ -88,14 +90,9 @@ app.get('/images/:id', async (req, res) => {
     }
    
 
-    const extractedText = image.extractedText; // Assuming you store the extracted text in the image document
-    const uploadTime = image.timestamp; // Assuming you store the upload time in the image document
+    const extractedText = image.extractedText;
+    const uploadTime = image.timestamp;
 
-    // Set the Content-Type to specify the image format (e.g., PNG)
-    // res.set('Content-Type', 'image/png');
-
-    // Send a JSON response with the image, extracted text, and upload time
-    // res.json({ image: image.image.toString('base64'), extractedText, uploadTime });
     console.log({ extractedText, uploadTime })
     res.json({ extractedText, uploadTime });
   } catch (error) {
